@@ -1,0 +1,10 @@
+
+{
+  "appId": "com.mga.mobileguard",
+  "appName": "Mobile Guard App",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
