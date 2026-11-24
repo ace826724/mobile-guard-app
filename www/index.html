@@ -23,6 +23,8 @@
       <div class="version">v1.0</div>
     </header>
 
+    <!-- ANA EKRAN -->
+
     <main id="homeScreen">
 
       <section class="welcome">
@@ -119,6 +121,8 @@
 
     </main>
 
+    <!-- ENGELLEME KAYITLARI EKRANI -->
+
     <main id="logsScreen" hidden>
 
       <section class="welcome">
@@ -187,6 +191,131 @@
       </section>
 
     </main>
+
+    <!-- GÜVENİLİR SİTELER EKRANI -->
+
+    <main id="allowlistScreen" hidden>
+
+      <section class="welcome">
+
+        <button
+          id="backFromAllowlistButton"
+          class="menu-item"
+          type="button"
+          style="margin-bottom: 22px;"
+        >
+          <span class="menu-arrow">‹</span>
+          <span class="menu-content">
+            <strong>Ana ekrana dön</strong>
+          </span>
+        </button>
+
+        <p class="eyebrow">MGA GÜVENLİK ARAÇLARI</p>
+
+        <h1>Güvenilir siteler</h1>
+
+        <p class="welcome-text">
+          Güvenilir olarak belirlediğin alan adlarını burada
+          yönetebilirsin.
+        </p>
+
+      </section>
+
+      <section class="menu-section">
+
+        <h2>Yeni site ekle</h2>
+
+        <div class="stat-card">
+
+          <label
+            for="allowlistDomainInput"
+            style="display:block; margin-bottom:10px; color:var(--muted); font-size:12px;"
+          >
+            Alan adı
+          </label>
+
+          <input
+            id="allowlistDomainInput"
+            type="text"
+            placeholder="ornek.com"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            style="width:100%; padding:14px; border:1px solid var(--border); border-radius:12px; background:var(--bg); color:var(--text); font-size:14px;"
+          >
+
+          <button
+            id="addAllowlistButton"
+            class="primary-button"
+            type="button"
+            style="margin-top:13px;"
+          >
+            + Güvenilir site ekle
+          </button>
+
+          <p
+            id="allowlistMessage"
+            role="status"
+            aria-live="polite"
+            style="margin-top:12px; color:var(--muted); font-size:12px; line-height:1.5;"
+          >
+            Örnek: google.com
+          </p>
+
+        </div>
+
+      </section>
+
+      <section class="menu-section">
+
+        <h2>Güvenilir site listem</h2>
+
+        <div class="section-heading">
+          <span class="live-indicator">● Cihazda saklanan liste</span>
+          <span
+            id="allowlistCount"
+            class="live-indicator"
+          >0 site</span>
+        </div>
+
+        <div id="allowlistEmptyMessage" class="stat-card">
+
+          <div class="stat-icon">🌐</div>
+
+          <h3 style="margin-top:14px; font-size:15px;">
+            Henüz güvenilir site eklenmedi
+          </h3>
+
+          <p class="welcome-text">
+            Eklediğin alan adları bu listede görüntülenecek.
+          </p>
+
+        </div>
+
+        <div id="allowlistList"></div>
+
+      </section>
+
+      <section class="info-card">
+
+        <div class="info-icon">🔐</div>
+
+        <div>
+          <strong>Güvenlik bilgilendirmesi</strong>
+
+          <p>
+            Bu liste şu anda yalnızca cihazında saklanır.
+            DNS filtreleme motoruyla henüz bağlantılı değildir.
+            Site eklemek, o siteyi şu anda otomatik olarak
+            engellemeden muaf tutmaz.
+          </p>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- AYARLAR EKRANI ŞİMDİLİK GELİŞTİRME AŞAMASINDA -->
 
     <footer>
       <div>Mobile Guard App</div>
