@@ -1,11 +1,19 @@
-
 package com.mga.mobileguard
 
 import android.content.Intent
 import android.net.VpnService
-import android.os.ParcelFileDescriptor
 import android.util.Log
 
+/**
+ * MGA - Mobile Guard App
+ *
+ * Güvenli VPN servis başlangıç altyapısı.
+ *
+ * ÖNEMLİ:
+ * DNS paket işleme ve yönlendirme motoru henüz hazır değildir.
+ * Bu nedenle bu sürüm VPN arayüzü oluşturmaz ve cihaz trafiğine
+ * müdahale etmez.
+ */
 class MgaVpnService : VpnService() {
 
     companion object {
@@ -13,9 +21,16 @@ class MgaVpnService : VpnService() {
         const val ACTION_STOP = "com.mga.mobileguard.STOP_VPN"
 
         private const val TAG = "MGA-VPN"
+
+        const val STATUS_STOPPED = "STOPPED"
+        const val STATUS_ENGINE_NOT_READY = "ENGINE_NOT_READY"
     }
 
-    private var vpnInterface: ParcelFileDescriptor? = null
+    @Volatile
+    private var serviceRunning = false
+
+    @Volatile
+    private var engineReady = false
 
     override fun onStartCommand(
         intent: Intent?,
@@ -26,54 +41,79 @@ class MgaVpnService : VpnService() {
         when (intent?.action) {
             ACTION_START -> startVpn()
             ACTION_STOP -> stopVpn()
+
+            else -> {
+                Log.w(TAG, "Bilinmeyen veya boş servis komutu.")
+            }
         }
 
         return START_NOT_STICKY
     }
 
+    /**
+     * VPN motoru henüz hazır olmadığı için gerçek VPN bağlantısı
+     * başlatılmaz. Bu davranış cihazın internet bağlantısını korur.
+     */
     private fun startVpn() {
-        if (vpnInterface != null) {
-            Log.i(TAG, "VPN servisi zaten başlatılmış.")
+
+        if (serviceRunning) {
+            Log.i(TAG, "MGA servisi zaten çalışıyor.")
             return
         }
 
-        try {
-            val builder = Builder()
-                .setSession("MGA Mobile Guard")
-                .addAddress("10.10.10.1", 32)
-                .addRoute("0.0.0.0", 0)
-                .addDnsServer("10.10.10.2")
-                .setMtu(1500)
+        if (!engineReady) {
+            serviceRunning = false
 
-            vpnInterface = builder.establish()
+            Log.w(
+                TAG,
+                "VPN başlatılmadı: DNS filtreleme motoru henüz hazır değil."
+            )
 
-            if (vpnInterface == null) {
-                Log.e(TAG, "VPN arayüzü oluşturulamadı.")
-                stopSelf()
-                return
-            }
+            Log.i(
+                TAG,
+                "Cihaz internet trafiğine müdahale edilmiyor."
+            )
 
-            Log.i(TAG, "VPN arayüzü oluşturuldu.")
-
-        } catch (exception: Exception) {
-            Log.e(TAG, "VPN başlatma hatası.", exception)
-            stopVpn()
+            stopSelf()
+            return
         }
+
+        /*
+         * Gerçek DNS motoru hazır olduğunda:
+         * 1. VpnService.Builder yapılandırılacak.
+         * 2. TUN arayüzü oluşturulacak.
+         * 3. Paket okuma ve DNS işleme döngüsü başlatılacak.
+         *
+         * Bu aşamada engineReady false olduğundan buraya ulaşılmaz.
+         */
     }
 
+    /**
+     * Servisi güvenli şekilde durdurur.
+     */
     private fun stopVpn() {
-        try {
-            vpnInterface?.close()
-        } catch (exception: Exception) {
-            Log.e(TAG, "VPN kapatma hatası.", exception)
-        } finally {
-            vpnInterface = null
-            stopSelf()
-        }
+
+        serviceRunning = false
+
+        Log.i(TAG, "MGA VPN servisi durduruldu.")
+
+        stopSelf()
+    }
+
+    override fun onRevoke() {
+        Log.w(TAG, "VPN izni sistem tarafından kaldırıldı.")
+
+        stopVpn()
+
+        super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopVpn()
+
+        serviceRunning = false
+
+        Log.i(TAG, "MGA VPN servisi kapatıldı.")
+
         super.onDestroy()
     }
 }
