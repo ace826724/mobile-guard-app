@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="MGA - Mobile Guard App">
+  <title>MGA - Mobile Guard App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🛡️</div>
+        <div>
+          <div class="brand-name">MGA</div>
+          <div class="brand-subtitle">Mobile Guard App</div>
+        </div>
+      </div>
+      <div class="version">v1.0</div>
+    </header>
+
+    <main>
+      <section class="welcome">
+        <p class="eyebrow">MOBİL GÜVENLİK MERKEZİ</p>
+        <h1>Kontrol sende.</h1>
+        <p class="welcome-text">
+          İstenmeyen bağlantılara ve şüpheli alan adlarına karşı
+          telefonunu koru.
+        </p>
+      </section>
+
+      <section class="protection-card">
+        <div class="shield-circle" id="shieldIcon">🛡️</div>
+
+        <div class="protection-status">
+          <span class="status-label">KORUMA DURUMU</span>
+          <h2 id="protectionStatus">Henüz başlatılmadı</h2>
+          <p id="protectionDescription">
+            Koruma motoru henüz etkin değil.
+          </p>
+        </div>
+
+        <button id="protectionButton" class="primary-button" type="button">
+          Korumayı başlat
+        </button>
+
+        <p class="permission-note" id="permissionNote">
+          Başlatma sırasında Android VPN izni istenecektir.
+        </p>
+      </section>
+
+      <section class="stats-section">
+        <div class="section-heading">
+          <h2>Güvenlik özeti</h2>
+          <span class="live-indicator">● Yerel istatistikler</span>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-icon">🚫</div>
+            <div class="stat-number" id="blockedCount">0</div>
+            <div class="stat-label">Engellenen bağlantı</div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-icon">🔎</div>
+            <div class="stat-number" id="checkedCount">0</div>
+            <div class="stat-label">Kontrol edilen sorgu</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="menu-section">
+        <h2>Güvenlik araçları</h2>
+
+        <button class="menu-item" id="logsButton" type="button">
+          <span class="menu-icon">📋</span>
+          <span class="menu-content">
+            <strong>Engelleme kayıtları</strong>
+            <small>Engellenen alan adlarını görüntüle</small>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+
+        <button class="menu-item" id="allowlistButton" type="button">
+          <span class="menu-icon">🌐</span>
+          <span class="menu-content">
+            <strong>Güvenilir siteler</strong>
+            <small>İzin verilen alan adlarını yönet</small>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+
+        <button class="menu-item" id="settingsButton" type="button">
+          <span class="menu-icon">⚙️</span>
+          <span class="menu-content">
+            <strong>Ayarlar</strong>
+            <small>Koruma tercihlerini düzenle</small>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+      </section>
+
+      <section class="info-card">
+        <div class="info-icon">🔐</div>
+        <div>
+          <strong>Gizlilik önceliğimiz</strong>
+          <p>
+            MGA, koruma işlemlerini cihaz üzerinde gerçekleştirmek
+            üzere tasarlanmaktadır. Uzak VPN sunucusu kullanılmayacaktır.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>Mobile Guard App</div>
+      <div>Güvenliğin senin kontrolünde.</div>
+    </footer>
+
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
