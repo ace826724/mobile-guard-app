@@ -1,0 +1,21 @@
+
+{
+  "name": "mobile-guard-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MGA - Mobile Guard App | Android device-wide protection",
+  "author": "MGA",
+  "license": "MIT",
+  "scripts": {
+    "cap:sync": "cap sync android",
+    "cap:copy": "cap copy android",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}
