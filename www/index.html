@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -24,7 +23,8 @@
       <div class="version">v1.0</div>
     </header>
 
-    <main>
+    <main id="homeScreen">
+
       <section class="welcome">
         <p class="eyebrow">MOBİL GÜVENLİK MERKEZİ</p>
         <h1>Kontrol sende.</h1>
@@ -116,6 +116,76 @@
           </p>
         </div>
       </section>
+
+    </main>
+
+    <main id="logsScreen" hidden>
+
+      <section class="welcome">
+        <button
+          id="backToHomeButton"
+          class="menu-item"
+          type="button"
+          style="margin-bottom: 22px;"
+        >
+          <span class="menu-arrow">‹</span>
+          <span class="menu-content">
+            <strong>Ana ekrana dön</strong>
+          </span>
+        </button>
+
+        <p class="eyebrow">MGA GÜVENLİK ARAÇLARI</p>
+        <h1>Engelleme kayıtları</h1>
+        <p class="welcome-text">
+          MGA tarafından engellenen alan adlarının kayıtlarını
+          burada görüntüleyebilirsin.
+        </p>
+      </section>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-icon">🚫</div>
+          <div class="stat-number" id="logsBlockedCount">0</div>
+          <div class="stat-label">Toplam engelleme</div>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-number" id="logsRecordCount">0</div>
+          <div class="stat-label">Kayıt sayısı</div>
+        </article>
+      </section>
+
+      <section class="menu-section">
+        <h2>Kayıt geçmişi</h2>
+
+        <div class="stat-card" id="emptyLogsMessage">
+          <div class="stat-icon">🔎</div>
+          <h3 style="margin-top: 14px; font-size: 15px;">
+            Henüz engelleme kaydı yok
+          </h3>
+          <p class="welcome-text">
+            Gerçek DNS filtreleme motoru etkinleştirildiğinde
+            engellenen alan adları ve işlem ayrıntıları burada
+            görüntülenecek.
+          </p>
+        </div>
+
+        <div id="logsList"></div>
+      </section>
+
+      <section class="info-card">
+        <div class="info-icon">🔐</div>
+        <div>
+          <strong>Yerel kayıt gizliliği</strong>
+          <p>
+            Kayıt sistemi cihaz üzerinde çalışacak şekilde
+            tasarlanacaktır. Şu anda gerçek engelleme kaydı
+            oluşturulmamaktadır.
+          </p>
+        </div>
+      </section>
+
     </main>
 
     <footer>
