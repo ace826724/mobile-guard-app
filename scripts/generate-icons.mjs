@@ -22,7 +22,7 @@ for (const [folder, size] of Object.entries(densities)) {
   const outputDir = path.join(androidRes, folder);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  for (const name of ["mga_launcher", "mga_launcher_round"]) {
+  for (const name of ["ic_launcher", "ic_launcher_round"]) {
     await sharp(source)
       .resize(size, size, {
         fit: "contain",
