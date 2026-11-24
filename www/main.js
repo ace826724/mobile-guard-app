@@ -1,4 +1,3 @@
-
 "use strict";
 
 /*
@@ -6,9 +5,8 @@
  * Main JavaScript Controller
  * Version: 1.0.0
  *
- * Bu dosya arayüz işlemlerini yönetir.
- * VPN bağlantısı henüz sonraki geliştirme aşamasında
- * Kotlin VPNService ile entegre edilecektir.
+ * Engelleme kayıtları ekranı ve ana ekran yönetimi.
+ * VPN motoru henüz entegre edilmemiştir.
  */
 
 const MGA = {
@@ -17,7 +15,8 @@ const MGA = {
   state: {
     protectionActive: false,
     blockedCount: 0,
-    checkedCount: 0
+    checkedCount: 0,
+    logs: []
   },
 
   elements: {},
@@ -26,22 +25,32 @@ const MGA = {
     this.cacheElements();
     this.bindEvents();
     this.updateInterface();
+    this.showHomeScreen();
 
     console.log("MGA Mobile Guard App initialized.");
   },
 
   cacheElements() {
     this.elements = {
+      homeScreen: document.getElementById("homeScreen"),
+      logsScreen: document.getElementById("logsScreen"),
+
       protectionButton: document.getElementById("protectionButton"),
       protectionStatus: document.getElementById("protectionStatus"),
       protectionDescription: document.getElementById("protectionDescription"),
       shieldIcon: document.getElementById("shieldIcon"),
-      permissionNote: document.getElementById("permissionNote"),
 
       blockedCount: document.getElementById("blockedCount"),
       checkedCount: document.getElementById("checkedCount"),
 
       logsButton: document.getElementById("logsButton"),
+      backToHomeButton: document.getElementById("backToHomeButton"),
+
+      logsBlockedCount: document.getElementById("logsBlockedCount"),
+      logsRecordCount: document.getElementById("logsRecordCount"),
+      emptyLogsMessage: document.getElementById("emptyLogsMessage"),
+      logsList: document.getElementById("logsList"),
+
       allowlistButton: document.getElementById("allowlistButton"),
       settingsButton: document.getElementById("settingsButton")
     };
@@ -55,7 +64,12 @@ const MGA = {
 
     this.elements.logsButton.addEventListener(
       "click",
-      () => this.showComingSoon("Engelleme kayıtları")
+      () => this.showLogsScreen()
+    );
+
+    this.elements.backToHomeButton.addEventListener(
+      "click",
+      () => this.showHomeScreen()
     );
 
     this.elements.allowlistButton.addEventListener(
@@ -69,6 +83,50 @@ const MGA = {
     );
   },
 
+  showHomeScreen() {
+    this.elements.logsScreen.hidden = true;
+    this.elements.homeScreen.hidden = false;
+    window.scrollTo(0, 0);
+  },
+
+  showLogsScreen() {
+    this.updateLogsScreen();
+
+    this.elements.homeScreen.hidden = true;
+    this.elements.logsScreen.hidden = false;
+
+    window.scrollTo(0, 0);
+  },
+
+  updateLogsScreen() {
+    const totalBlocked = this.state.blockedCount;
+    const totalRecords = this.state.logs.length;
+
+    this.elements.logsBlockedCount.textContent = totalBlocked;
+    this.elements.logsRecordCount.textContent = totalRecords;
+
+    this.elements.emptyLogsMessage.hidden = totalRecords > 0;
+
+    this.elements.logsList.replaceChildren();
+
+    this.state.logs.forEach((log) => {
+      const item = document.createElement("article");
+      item.className = "stat-card";
+
+      const domain = document.createElement("strong");
+      domain.textContent = log.domain;
+
+      const reason = document.createElement("p");
+      reason.textContent = log.reason;
+
+      const date = document.createElement("small");
+      date.textContent = log.date;
+
+      item.append(domain, reason, date);
+      this.elements.logsList.appendChild(item);
+    });
+  },
+
   toggleProtection() {
     if (this.state.protectionActive) {
       this.stopProtection();
@@ -76,23 +134,16 @@ const MGA = {
     }
 
     this.showMessage(
-      "VPN koruma motoru henüz entegre edilmedi. " +
-      "Android VPNService bağlantısı sonraki geliştirme aşamasında eklenecek."
+      "MGA VPN koruma motoru henüz hazır değil. " +
+      "Cihaz güvenliği için koruma başlatılamaz."
     );
   },
 
   startProtection() {
-    /*
-     * İleride burada Android Kotlin VPNService başlatılacak.
-     * Gerçek servis onayı alınmadan koruma aktif gösterilmemelidir.
-     */
     console.warn("MGA VPNService is not integrated yet.");
   },
 
   stopProtection() {
-    /*
-     * İleride Android VPNService durdurma işlemi burada yapılacak.
-     */
     console.warn("MGA VPNService is not integrated yet.");
   },
 
@@ -103,27 +154,18 @@ const MGA = {
     this.elements.checkedCount.textContent =
       this.state.checkedCount;
 
-    if (this.state.protectionActive) {
-      this.elements.protectionStatus.textContent = "Koruma aktif";
-      this.elements.protectionDescription.textContent =
-        "MGA cihazını koruyor.";
+    this.elements.protectionStatus.textContent =
+      "Henüz başlatılmadı";
 
-      this.elements.protectionButton.textContent =
-        "Korumayı durdur";
+    this.elements.protectionDescription.textContent =
+      "Koruma motoru henüz etkin değil.";
 
-      this.elements.shieldIcon.textContent = "🛡️";
-    } else {
-      this.elements.protectionStatus.textContent =
-        "Henüz başlatılmadı";
+    this.elements.protectionButton.textContent =
+      "Korumayı başlat";
 
-      this.elements.protectionDescription.textContent =
-        "Koruma motoru henüz etkin değil.";
+    this.elements.shieldIcon.textContent = "🛡️";
 
-      this.elements.protectionButton.textContent =
-        "Korumayı başlat";
-
-      this.elements.shieldIcon.textContent = "🛡️";
-    }
+    this.updateLogsScreen();
   },
 
   showComingSoon(feature) {
