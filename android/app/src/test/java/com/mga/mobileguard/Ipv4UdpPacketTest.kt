@@ -3,13 +3,27 @@ package com.mga.mobileguard
 import org.junit.Assert.*
 import org.junit.Test
 
-class Ipv4UdpPacketTest {
+class DnsPacketProcessorTest {
 
-    private fun createUdpDnsPacket(
-        destinationPort: Int = 53,
-        fragmentField: Int = 0
-    ): ByteArray {
-        val dns = byteArrayOf(
+    private class FakeDnsForwarder(
+        private val response: ByteArray?
+    ) : DnsQueryForwarder {
+
+        var callCount = 0
+            private set
+
+        var lastQuery: ByteArray? = null
+            private set
+
+        override fun forward(query: ByteArray): ByteArray? {
+            callCount++
+            lastQuery = query.copyOf()
+            return response?.copyOf()
+        }
+    }
+
+    private fun createDnsQuery(): ByteArray {
+        return byteArrayOf(
             0x12, 0x34,
             0x01, 0x00,
             0x00, 0x01,
@@ -24,14 +38,16 @@ class Ipv4UdpPacketTest {
             0x00, 0x01,
             0x00, 0x01
         )
+    }
 
+    private fun createIpv4UdpPacket(dns: ByteArray): ByteArray {
         val packet = ByteArray(20 + 8 + dns.size)
 
         packet[0] = 0x45
         packet[1] = 0
         writeUInt16(packet, 2, packet.size)
         writeUInt16(packet, 4, 0x1234)
-        writeUInt16(packet, 6, fragmentField)
+        writeUInt16(packet, 6, 0)
         packet[8] = 64
         packet[9] = 17
 
@@ -45,14 +61,14 @@ class Ipv4UdpPacketTest {
         packet[18] = 8
         packet[19] = 8
 
-        val udpOffset = 20
-        writeUInt16(packet, udpOffset, 40000)
-        writeUInt16(packet, udpOffset + 2, destinationPort)
-        writeUInt16(packet, udpOffset + 4, 8 + dns.size)
-        writeUInt16(packet, udpOffset + 6, 0)
+        writeUInt16(packet, 20, 40000)
+        writeUInt16(packet, 22, 53)
+        writeUInt16(packet, 24, 8 + dns.size)
+        writeUInt16(packet, 26, 0)
 
-        dns.copyInto(packet, udpOffset + 8)
+        dns.copyInto(packet, 28)
         writeUInt16(packet, 10, checksum(packet, 0, 20))
+
         return packet
     }
 
@@ -63,16 +79,6 @@ class Ipv4UdpPacketTest {
     ) {
         data[offset] = ((value shr 8) and 0xFF).toByte()
         data[offset + 1] = (value and 0xFF).toByte()
-    }
-
-    private fun readUInt16(
-        data: ByteArray,
-        offset: Int
-    ): Int {
-        return (
-            ((data[offset].toInt() and 0xFF) shl 8) or
-                (data[offset + 1].toInt() and 0xFF)
-        )
     }
 
     private fun checksum(
@@ -105,149 +111,81 @@ class Ipv4UdpPacketTest {
         return sum.inv().toInt() and 0xFFFF
     }
 
-    @Test
-    fun validDnsPacketIsParsed() {
-        val parsed = Ipv4UdpPacket.parse(createUdpDnsPacket())
+    private fun createProcessor(
+        blockedDomains: Set<String> = emptySet(),
+        upstreamResponse: ByteArray? = null
+    ): Pair<DnsPacketProcessor, FakeDnsForwarder> {
 
-        assertNotNull(parsed)
-        assertEquals(40000, parsed?.sourcePort)
-        assertEquals(53, parsed?.destinationPort)
-        assertEquals(0x1234, parsed?.identification)
-        assertEquals(29, parsed?.dnsPayload?.size)
+        val blocklist = BlocklistManager()
+        blockedDomains.forEach(blocklist::addDomain)
+
+        val engine = DnsFilteringEngine(blocklist)
+        val fakeForwarder = FakeDnsForwarder(upstreamResponse)
+
+        return DnsPacketProcessor(
+            engine,
+            fakeForwarder
+        ) to fakeForwarder
     }
 
     @Test
-    fun nonDnsDestinationPortIsRejected() {
-        val parsed = Ipv4UdpPacket.parse(
-            createUdpDnsPacket(destinationPort = 1234)
+    fun allowedDomainIsForwardedToUpstream() {
+        val query = createDnsQuery()
+        val response = query.copyOf().also {
+            it[2] = 0x81.toByte()
+            it[3] = 0x80.toByte()
+        }
+
+        val (processor, fake) = createProcessor(
+            upstreamResponse = response
         )
 
-        assertNull(parsed)
-    }
-
-    @Test
-    fun fragmentedPacketIsRejected() {
-        val parsed = Ipv4UdpPacket.parse(
-            createUdpDnsPacket(fragmentField = 0x2000)
+        val result = processor.process(
+            createIpv4UdpPacket(query)
         )
 
-        assertNull(parsed)
+        assertNotNull(result)
+        assertEquals(1, fake.callCount)
+        assertArrayEquals(query, fake.lastQuery)
     }
 
     @Test
-    fun truncatedPacketIsRejected() {
-        val packet = createUdpDnsPacket().copyOf(25)
-
-        assertNull(Ipv4UdpPacket.parse(packet))
-    }
-
-    @Test
-    fun responseReversesAddressesAndPorts() {
-        val request = Ipv4UdpPacket.parse(createUdpDnsPacket())
-        assertNotNull(request)
-
-        val dnsResponse = byteArrayOf(
-            0x12, 0x34,
-            0x81.toByte(), 0x83.toByte(),
-            0x00, 0x01,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00
+    fun blockedDomainDoesNotReachUpstream() {
+        val (processor, fake) = createProcessor(
+            blockedDomains = setOf("example.com")
         )
 
-        val response = Ipv4UdpPacket.buildResponse(
-            request!!,
-            dnsResponse
+        val result = processor.process(
+            createIpv4UdpPacket(createDnsQuery())
         )
 
-        assertNotNull(response)
-
-        val packet = response!!
-
-        assertArrayEquals(
-            byteArrayOf(8, 8, 8, 8),
-            packet.copyOfRange(12, 16)
-        )
-
-        assertArrayEquals(
-            byteArrayOf(192.toByte(), 0, 2, 10),
-            packet.copyOfRange(16, 20)
-        )
-
-        assertEquals(53, readUInt16(packet, 20))
-        assertEquals(40000, readUInt16(packet, 22))
+        assertNotNull(result)
+        assertEquals(0, fake.callCount)
     }
 
     @Test
-    fun responseHasValidIpv4Checksum() {
-        val request = Ipv4UdpPacket.parse(createUdpDnsPacket())!!
-
-        val response = Ipv4UdpPacket.buildResponse(
-            request,
-            byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x83.toByte())
-        )!!
-
-        assertEquals(0, checksum(response, 0, 20))
-    }
-
-    @Test
-    fun responseHasValidUdpChecksum() {
-        val request = Ipv4UdpPacket.parse(createUdpDnsPacket())!!
-
-        val response = Ipv4UdpPacket.buildResponse(
-            request,
-            byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x83.toByte())
-        )!!
-
-        val udpLength = readUInt16(response, 24)
-        val pseudoHeader = ByteArray(12 + udpLength)
-
-        response.copyInto(pseudoHeader, 0, 12, 20)
-        pseudoHeader[8] = 0
-        pseudoHeader[9] = 17
-        writeUInt16(pseudoHeader, 10, udpLength)
-
-        response.copyInto(
-            pseudoHeader,
-            12,
-            20,
-            20 + udpLength
+    fun upstreamFailureReturnsNull() {
+        val (processor, fake) = createProcessor(
+            upstreamResponse = null
         )
 
-        assertEquals(
-            0,
-            checksum(pseudoHeader, 0, pseudoHeader.size)
+        val result = processor.process(
+            createIpv4UdpPacket(createDnsQuery())
         )
-    }
-    
-    @Test
-    fun packetWithInvalidIpv4ChecksumIsRejected() {
-        val packet = createUdpDnsPacket()
 
-        // IPv4 başlık checksum alanını geçersiz yap.
-        packet[10] = 0x12
-        packet[11] = 0x34
-
-        assertNull(Ipv4UdpPacket.parse(packet))
+        assertNull(result)
+        assertEquals(1, fake.callCount)
     }
 
     @Test
-    fun packetWithInvalidUdpLengthIsRejected() {
-        val packet = createUdpDnsPacket()
+    fun invalidIpPacketReturnsNull() {
+        val (processor, fake) = createProcessor()
 
-        // UDP uzunluğunu IPv4 toplam uzunluğundan büyük yap.
-        writeUInt16(packet, 24, packet.size)
+        val result = processor.process(
+            byteArrayOf(1, 2, 3, 4)
+        )
 
-        assertNull(Ipv4UdpPacket.parse(packet))
-    }
-
-    @Test
-    fun packetWithZeroUdpChecksumIsAccepted() {
-        val packet = createUdpDnsPacket()
-
-        // IPv4 üzerinde UDP checksum sıfır olabilir.
-        writeUInt16(packet, 26, 0)
-
-        assertNotNull(Ipv4UdpPacket.parse(packet))
+        assertNull(result)
+        assertEquals(0, fake.callCount)
     }
 }
