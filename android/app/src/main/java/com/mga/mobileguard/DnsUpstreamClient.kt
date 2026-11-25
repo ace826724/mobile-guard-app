@@ -9,15 +9,22 @@ import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
 
 /**
+ * DNS sorgularını ileten ortak arayüz.
+ * Testlerde gerçek ağ bağlantısı yerine sahte uygulama kullanılabilir.
+ */
+fun interface DnsQueryForwarder {
+    fun forward(query: ByteArray): ByteArray?
+}
+
+/**
  * MGA - DNS Upstream Client
  *
  * DNS sorgularını Cloudflare 1.1.1.1:53 adresine iletir.
- * Gelen yanıtın kaynak adresini ve sorguyla eşleşmesini doğrular.
  */
 class DnsUpstreamClient(
     private val vpnService: VpnService,
     private val timeoutMillis: Int = 5000
-) {
+) : DnsQueryForwarder {
 
     companion object {
         private const val TAG = "MGA-DNS-UPSTREAM"
@@ -27,13 +34,7 @@ class DnsUpstreamClient(
         private const val DNS_HEADER_SIZE = 12
     }
 
-    /**
-     * DNS sorgusunu Cloudflare'a gönderir.
-     *
-     * Geçerli yanıt alınırsa ByteArray döndürür.
-     * Hata, geçersiz yanıt veya zaman aşımında null döndürür.
-     */
-    fun forward(query: ByteArray): ByteArray? {
+    override fun forward(query: ByteArray): ByteArray? {
 
         if (query.size < DNS_HEADER_SIZE ||
             query.size > MAX_DNS_PACKET_SIZE
@@ -42,11 +43,15 @@ class DnsUpstreamClient(
             return null
         }
 
-        // Gelen veri bir DNS sorgusu olmalı.
         val queryFlags = readUInt16(query, 2)
 
         if ((queryFlags and 0x8000) != 0) {
             Log.w(TAG, "DNS yanıtı sorgu olarak gönderilemez.")
+            return null
+        }
+
+        if ((queryFlags and 0x7800) != 0) {
+            Log.w(TAG, "Desteklenmeyen DNS sorgu işlemi.")
             return null
         }
 
@@ -60,7 +65,6 @@ class DnsUpstreamClient(
         return try {
             socket = DatagramSocket()
 
-            // Soketi VPN tünelinden çıkar.
             if (!vpnService.protect(socket)) {
                 Log.e(TAG, "DNS soketi VPN korumasına alınamadı.")
                 return null
@@ -70,7 +74,6 @@ class DnsUpstreamClient(
 
             val serverAddress = InetAddress.getByName(DNS_SERVER)
 
-            // Yalnızca belirtilen Cloudflare sunucusuyla iletişim kur.
             socket.connect(
                 InetSocketAddress(serverAddress, DNS_PORT)
             )
@@ -115,9 +118,6 @@ class DnsUpstreamClient(
         }
     }
 
-    /**
-     * Yanıtın gönderilen DNS sorgusuyla eşleşmesini kontrol eder.
-     */
     private fun isMatchingResponse(
         query: ByteArray,
         response: ByteArray
@@ -125,7 +125,6 @@ class DnsUpstreamClient(
 
         if (response.size < DNS_HEADER_SIZE) return false
 
-        // Transaction ID aynı olmalı.
         if (readUInt16(query, 0) != readUInt16(response, 0)) {
             return false
         }
@@ -133,21 +132,19 @@ class DnsUpstreamClient(
         val queryFlags = readUInt16(query, 2)
         val responseFlags = readUInt16(response, 2)
 
-        // QR biti yanıtı göstermeli.
         if ((responseFlags and 0x8000) == 0) return false
 
-        // Opcode aynı olmalı.
-        if ((queryFlags and 0x7800) !=
-            (responseFlags and 0x7800)
+        if ((responseFlags and 0x7800) !=
+            (queryFlags and 0x7800)
         ) {
             return false
         }
 
-        // Sorgu ve yanıt bir soru içermeli.
+        if ((responseFlags and 0x0200) != 0) return false
+
         if (readUInt16(query, 4) != 1) return false
         if (readUInt16(response, 4) != 1) return false
 
-        // Soru bölümünü karşılaştır.
         val queryQuestionEnd = findQuestionEnd(query)
             ?: return false
 
@@ -167,23 +164,23 @@ class DnsUpstreamClient(
         return queryQuestion.contentEquals(responseQuestion)
     }
 
-    /**
-     * DNS soru bölümünün bitiş konumunu bulur.
-     */
     private fun findQuestionEnd(packet: ByteArray): Int? {
 
         if (packet.size < DNS_HEADER_SIZE + 5) return null
 
         var offset = DNS_HEADER_SIZE
+        var nameEnded = false
 
         while (offset < packet.size) {
 
             val labelLength = packet[offset].toInt() and 0xFF
             offset++
 
-            if (labelLength == 0) break
+            if (labelLength == 0) {
+                nameEnded = true
+                break
+            }
 
-            // Sıkıştırılmış veya geçersiz soru adı kabul edilmez.
             if ((labelLength and 0xC0) != 0) return null
             if (labelLength > 63) return null
             if (offset + labelLength > packet.size) return null
@@ -191,6 +188,7 @@ class DnsUpstreamClient(
             offset += labelLength
         }
 
+        if (!nameEnded) return null
         if (offset + 4 > packet.size) return null
 
         return offset + 4
@@ -200,7 +198,6 @@ class DnsUpstreamClient(
         data: ByteArray,
         offset: Int
     ): Int {
-
         return (
             ((data[offset].toInt() and 0xFF) shl 8) or
                 (data[offset + 1].toInt() and 0xFF)
