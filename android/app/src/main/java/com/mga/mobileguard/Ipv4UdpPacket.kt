@@ -25,12 +25,6 @@ object Ipv4UdpPacket {
         val dnsPayload: ByteArray
     )
 
-    /**
-     * IPv4 UDP DNS paketini ayrıştırır.
-     *
-     * Parçalanmış paketler ve DNS dışındaki UDP
-     * hedef portları kabul edilmez.
-     */
     fun parse(packet: ByteArray): ParsedPacket? {
         if (packet.size < IPV4_MIN_HEADER_SIZE) return null
 
@@ -45,11 +39,13 @@ object Ipv4UdpPacket {
 
         val totalLength = readUInt16(packet, 2)
 
-        if (totalLength < headerLength + UDP_HEADER_SIZE) {
+        if (totalLength < headerLength + UDP_HEADER_SIZE) return null
+        if (totalLength > packet.size) return null
+
+        // IPv4 header checksum doğrulaması.
+        if (calculateChecksum(packet, 0, headerLength) != 0) {
             return null
         }
-
-        if (totalLength > packet.size) return null
 
         val protocol = packet[9].toInt() and 0xFF
         if (protocol != UDP_PROTOCOL) return null
@@ -62,12 +58,44 @@ object Ipv4UdpPacket {
         val udpLength = readUInt16(packet, udpOffset + 4)
 
         if (udpLength < UDP_HEADER_SIZE) return null
-        if (udpOffset + udpLength > totalLength) return null
+
+        // UDP datagramı IPv4 toplam uzunluğuyla tam örtüşmelidir.
+        if (udpOffset + udpLength != totalLength) return null
 
         val sourcePort = readUInt16(packet, udpOffset)
         val destinationPort = readUInt16(packet, udpOffset + 2)
 
         if (destinationPort != DNS_PORT) return null
+
+        // IPv4 UDP checksum sıfır olabilir.
+        val receivedUdpChecksum = readUInt16(packet, udpOffset + 6)
+
+        if (receivedUdpChecksum != 0) {
+            val checksumData = ByteArray(12 + udpLength)
+
+            packet.copyInto(checksumData, 0, 12, 20)
+
+            checksumData[8] = 0
+            checksumData[9] = UDP_PROTOCOL.toByte()
+
+            writeUInt16(checksumData, 10, udpLength)
+
+            packet.copyInto(
+                checksumData,
+                12,
+                udpOffset,
+                udpOffset + udpLength
+            )
+
+            if (calculateChecksum(
+                    checksumData,
+                    0,
+                    checksumData.size
+                ) != 0
+            ) {
+                return null
+            }
+        }
 
         val dnsStart = udpOffset + UDP_HEADER_SIZE
         val dnsEnd = udpOffset + udpLength
@@ -84,12 +112,6 @@ object Ipv4UdpPacket {
         )
     }
 
-    /**
-     * Ayrıştırılmış DNS sorgusu için IPv4/UDP yanıt paketi
-     * oluşturur.
-     *
-     * Kaynak ve hedef adresler ile portlar ters çevrilir.
-     */
     fun buildResponse(
         request: ParsedPacket,
         dnsResponse: ByteArray
@@ -97,27 +119,28 @@ object Ipv4UdpPacket {
 
         if (dnsResponse.isEmpty()) return null
 
-        val udpLength = UDP_HEADER_SIZE + dnsResponse.size
-        val totalLength = IPV4_MIN_HEADER_SIZE + udpLength
+        if (request.sourceAddress.size != 4) return null
+        if (request.destinationAddress.size != 4) return null
+        if (request.sourcePort !in 1..65535) return null
+
+        val udpLength = UDP_HEADER_SIZE.toLong() + dnsResponse.size
+        val totalLength = IPV4_MIN_HEADER_SIZE.toLong() + udpLength
 
         if (totalLength > 65535) return null
 
-        val response = ByteArray(totalLength)
+        val response = ByteArray(totalLength.toInt())
 
         // IPv4 header
         response[0] = 0x45.toByte()
         response[1] = 0
-        writeUInt16(response, 2, totalLength)
+        writeUInt16(response, 2, totalLength.toInt())
         writeUInt16(response, 4, request.identification)
         writeUInt16(response, 6, 0)
 
         response[8] = 64
         response[9] = UDP_PROTOCOL.toByte()
 
-        // Yanıtın kaynak adresi, isteğin hedef adresidir.
         request.destinationAddress.copyInto(response, 12)
-
-        // Yanıtın hedef adresi, isteğin kaynak adresidir.
         request.sourceAddress.copyInto(response, 16)
 
         // UDP header
@@ -125,7 +148,7 @@ object Ipv4UdpPacket {
 
         writeUInt16(response, udpOffset, DNS_PORT)
         writeUInt16(response, udpOffset + 2, request.sourcePort)
-        writeUInt16(response, udpOffset + 4, udpLength)
+        writeUInt16(response, udpOffset + 4, udpLength.toInt())
         writeUInt16(response, udpOffset + 6, 0)
 
         dnsResponse.copyInto(
@@ -133,7 +156,6 @@ object Ipv4UdpPacket {
             destinationOffset = udpOffset + UDP_HEADER_SIZE
         )
 
-        // IPv4 header checksum
         val ipChecksum = calculateChecksum(
             response,
             0,
@@ -142,11 +164,10 @@ object Ipv4UdpPacket {
 
         writeUInt16(response, 10, ipChecksum)
 
-        // UDP checksum: IPv4 pseudo-header + UDP datagram.
         val udpChecksum = calculateUdpChecksum(
             response,
             udpOffset,
-            udpLength
+            udpLength.toInt()
         )
 
         writeUInt16(
@@ -166,7 +187,6 @@ object Ipv4UdpPacket {
 
         val checksumData = ByteArray(12 + udpLength)
 
-        // IPv4 pseudo-header
         packet.copyInto(checksumData, 0, 12, 20)
 
         checksumData[8] = 0
@@ -201,7 +221,7 @@ object Ipv4UdpPacket {
         while (index + 1 < end) {
             val value =
                 ((data[index].toInt() and 0xFF) shl 8) or
-                (data[index + 1].toInt() and 0xFF)
+                    (data[index + 1].toInt() and 0xFF)
 
             sum += value.toLong()
             index += 2
@@ -226,7 +246,7 @@ object Ipv4UdpPacket {
     ): Int {
         return (
             ((data[offset].toInt() and 0xFF) shl 8) or
-            (data[offset + 1].toInt() and 0xFF)
+                (data[offset + 1].toInt() and 0xFF)
         )
     }
 
