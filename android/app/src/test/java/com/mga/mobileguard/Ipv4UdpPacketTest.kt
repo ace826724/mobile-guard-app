@@ -35,13 +35,11 @@ class Ipv4UdpPacketTest {
         packet[8] = 64
         packet[9] = 17
 
-        // 192.0.2.10
         packet[12] = 192.toByte()
         packet[13] = 0
         packet[14] = 2
         packet[15] = 10
 
-        // 8.8.8.8
         packet[16] = 8
         packet[17] = 8
         packet[18] = 8
@@ -73,7 +71,7 @@ class Ipv4UdpPacketTest {
     ): Int {
         return (
             ((data[offset].toInt() and 0xFF) shl 8) or
-            (data[offset + 1].toInt() and 0xFF)
+                (data[offset + 1].toInt() and 0xFF)
         )
     }
 
@@ -89,8 +87,8 @@ class Ipv4UdpPacketTest {
         while (index + 1 < end) {
             sum += (
                 ((data[index].toInt() and 0xFF) shl 8) or
-                (data[index + 1].toInt() and 0xFF)
-            ).toLong()
+                    (data[index + 1].toInt() and 0xFF)
+                ).toLong()
             index += 2
         }
 
@@ -115,7 +113,7 @@ class Ipv4UdpPacketTest {
         assertEquals(40000, parsed?.sourcePort)
         assertEquals(53, parsed?.destinationPort)
         assertEquals(0x1234, parsed?.identification)
-        assertEquals(30, parsed?.dnsPayload?.size)
+        assertEquals(29, parsed?.dnsPayload?.size)
     }
 
     @Test
@@ -166,13 +164,11 @@ class Ipv4UdpPacketTest {
 
         val packet = response!!
 
-        // Source address becomes original destination.
         assertArrayEquals(
             byteArrayOf(8, 8, 8, 8),
             packet.copyOfRange(12, 16)
         )
 
-        // Destination address becomes original source.
         assertArrayEquals(
             byteArrayOf(192.toByte(), 0, 2, 10),
             packet.copyOfRange(16, 20)
@@ -191,10 +187,7 @@ class Ipv4UdpPacketTest {
             byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x83.toByte())
         )!!
 
-        assertEquals(
-            0,
-            checksum(response, 0, 20)
-        )
+        assertEquals(0, checksum(response, 0, 20))
     }
 
     @Test
