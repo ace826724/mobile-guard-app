@@ -52,7 +52,7 @@ class Ipv4UdpPacketTest {
         writeUInt16(packet, udpOffset + 6, 0)
 
         dns.copyInto(packet, udpOffset + 8)
-
+        writeUInt16(packet, 10, checksum(packet, 0, 20))
         return packet
     }
 
