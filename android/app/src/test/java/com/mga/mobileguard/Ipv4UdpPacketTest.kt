@@ -219,4 +219,35 @@ class Ipv4UdpPacketTest {
             checksum(pseudoHeader, 0, pseudoHeader.size)
         )
     }
+    
+    @Test
+    fun packetWithInvalidIpv4ChecksumIsRejected() {
+        val packet = createUdpDnsPacket()
+
+        // IPv4 başlık checksum alanını geçersiz yap.
+        packet[10] = 0x12
+        packet[11] = 0x34
+
+        assertNull(Ipv4UdpPacket.parse(packet))
+    }
+
+    @Test
+    fun packetWithInvalidUdpLengthIsRejected() {
+        val packet = createUdpDnsPacket()
+
+        // UDP uzunluğunu IPv4 toplam uzunluğundan büyük yap.
+        writeUInt16(packet, 24, packet.size)
+
+        assertNull(Ipv4UdpPacket.parse(packet))
+    }
+
+    @Test
+    fun packetWithZeroUdpChecksumIsAccepted() {
+        val packet = createUdpDnsPacket()
+
+        // IPv4 üzerinde UDP checksum sıfır olabilir.
+        writeUInt16(packet, 26, 0)
+
+        assertNotNull(Ipv4UdpPacket.parse(packet))
+    }
 }
