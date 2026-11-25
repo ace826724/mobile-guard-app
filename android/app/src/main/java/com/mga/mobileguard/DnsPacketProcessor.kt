@@ -1,6 +1,5 @@
-package com.mga.mobileguard
 
-import android.util.Log
+package com.mga.mobileguard
 
 /**
  * MGA - DNS Packet Processor
@@ -11,10 +10,6 @@ class DnsPacketProcessor(
     private val filteringEngine: DnsFilteringEngine,
     private val upstreamClient: DnsQueryForwarder
 ) {
-
-    companion object {
-        private const val TAG = "MGA-DNS-PROCESSOR"
-    }
 
     /**
      * IPv4/UDP DNS paketini işler.
@@ -35,12 +30,6 @@ class DnsPacketProcessor(
             ) {
 
                 is DnsFilteringEngine.Evaluation.Blocked -> {
-
-                    Log.i(
-                        TAG,
-                        "Engellenen DNS sorgusu."
-                    )
-
                     Ipv4UdpPacket.buildResponse(
                         parsedPacket,
                         evaluation.response
@@ -48,12 +37,6 @@ class DnsPacketProcessor(
                 }
 
                 is DnsFilteringEngine.Evaluation.Forward -> {
-
-                    Log.d(
-                        TAG,
-                        "DNS sorgusu upstream sunucusuna iletiliyor."
-                    )
-
                     val response = upstreamClient.forward(
                         parsedPacket.dnsPayload
                     ) ?: return null
@@ -64,14 +47,10 @@ class DnsPacketProcessor(
                     )
                 }
 
-                DnsFilteringEngine.Evaluation.Invalid -> {
-                    Log.w(TAG, "Geçersiz DNS sorgusu reddedildi.")
-                    null
-                }
+                DnsFilteringEngine.Evaluation.Invalid -> null
             }
 
         } catch (exception: Exception) {
-            Log.e(TAG, "DNS paketi işlenemedi.", exception)
             null
         }
     }
