@@ -1,73 +1,93 @@
 package com.mga.mobileguard
 
+import android.content.Context
+
 /**
  * MGA - Blocklist Manager
  *
- * Engellenecek alan adlarını bellekte yönetir.
- *
- * Bu sürüm henüz kalıcı depolama kullanmaz ve
- * VPN trafiğine müdahale etmez.
+ * Engellenecek alan adlarını yönetir.
+ * Android Context ile oluşturulduğunda listeyi
+ * cihazın yerel depolamasından yükler ve günceller.
  */
-class BlocklistManager(
-    initialDomains: Set<String> = emptySet()
+class BlocklistManager private constructor(
+    initialDomains: Set<String>,
+    private var storage: BlocklistStorage?
 ) {
 
     private val domains = linkedSetOf<String>()
+
+    /**
+     * Bellekte çalışan sürüm.
+     * Mevcut birim testleriyle uyumludur.
+     */
+    constructor(
+        initialDomains: Set<String> = emptySet()
+    ) : this(initialDomains, null)
+
+    /**
+     * Kalıcı depolama kullanan Android sürümü.
+     */
+    constructor(context: Context) : this(
+        emptySet(),
+        BlocklistStorage(context)
+    ) {
+        domains.addAll(storage?.loadDomains() ?: emptySet())
+    }
 
     init {
         initialDomains.forEach { addDomain(it) }
     }
 
-    /**
-     * Geçerli bir alan adını listeye ekler.
-     * Başarılı eklemede true döndürür.
-     */
     @Synchronized
     fun addDomain(domain: String): Boolean {
         val normalized = normalizeDomain(domain) ?: return false
-        return domains.add(normalized)
+
+        val added = domains.add(normalized)
+
+        if (added) {
+            persist()
+        }
+
+        return added
     }
 
-    /**
-     * Alan adını listeden kaldırır.
-     */
     @Synchronized
     fun removeDomain(domain: String): Boolean {
         val normalized = normalizeDomain(domain) ?: return false
-        return domains.remove(normalized)
+
+        val removed = domains.remove(normalized)
+
+        if (removed) {
+            persist()
+        }
+
+        return removed
     }
 
-    /**
-     * Alan adının listede olup olmadığını kontrol eder.
-     */
     @Synchronized
     fun contains(domain: String): Boolean {
         val normalized = normalizeDomain(domain) ?: return false
         return normalized in domains
     }
 
-    /**
-     * Listenin güvenli bir kopyasını döndürür.
-     */
     @Synchronized
     fun getDomains(): Set<String> {
         return domains.toSet()
     }
 
-    /**
-     * Listedeki kayıt sayısı.
-     */
     @Synchronized
     fun size(): Int {
         return domains.size
     }
 
-    /**
-     * Tüm kayıtları siler.
-     */
     @Synchronized
     fun clear() {
         domains.clear()
+        persist()
+    }
+
+    private fun persist() {
+        storage?.saveDomains(domains)
     }
 
     private fun normalizeDomain(domain: String): String? {
